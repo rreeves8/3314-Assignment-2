@@ -1,7 +1,8 @@
 var { XORing,
     Hex2Bin, getSharedBits } = require('./tools')
-
 var { getPacket } = require('./Packet')
+
+const client = require('socket.io-client')
 
 //dht = Array<{ bits: array, id: string, address: string}>()
 
@@ -12,7 +13,7 @@ class Bucket {
     }
 
     refreshBucket(newPeers) {
-        if(newPeers.length !== 0){
+        if (newPeers.length !== 0) {
             newPeers.forEach((element) => {
                 this.pushBucket(element)
             });
@@ -22,14 +23,14 @@ class Bucket {
     pushBucket(newPeer) {
         let sharedBits = getSharedBits(Hex2Bin(this.self.id), Hex2Bin(newPeer.id))
         let index = this.DHT.findIndex((e) => e.bits === sharedBits);
-       
-        if(index !== -1){
+
+        if (index !== -1) {
             let idBinary = Hex2Bin(this.DHT[index].id)
 
             let distanceToCurrent = XORing(Hex2Bin(this.self.id), idBinary)
             let distanceToNewPeer = XORing(Hex2Bin(this.self.id), Hex2Bin(newPeer.id))
 
-            if(distanceToCurrent > distanceToNewPeer){
+            if (distanceToCurrent > distanceToNewPeer) {
                 this.DHT[index] = {
                     bits: sharedBits,
                     id: newPeer.id,
@@ -37,7 +38,7 @@ class Bucket {
                 }
             }
         }
-        else{
+        else {
             this.DHT.push({
                 bits: sharedBits,
                 id: newPeer.id,
@@ -46,32 +47,60 @@ class Bucket {
         }
     }
 
-    sendHello(net){
-        this.DHT.forEach((element) => {
-            let client = net.Socket()
-            let address = element.address.split(":")
+    async sendHello() {
+        for (let i = 0; i < this.DHT.length; i++) {
+            let element = this.DHT[i]
+            let address = element.address
+            let packet = getPacket(1, 0, this.self.address, null)
 
-            client.connect(address[1], address[0], (err) => {
-                console.log(err)
-            })
+            console.log("sending hello too: " + "ws://" + address)
 
-            let packet = getPacket(1, this.DHT.length, new String(this.self.peerNum).toString(), this.DHT)
+            const send = () => {
+                return new Promise((resolve, reject) => {
+                    let socket = client("ws:/" + new String(address).toString(), {
+                        extraHeaders: {
+                            remotePort: this.self.port
+                        },
+                        forceNew: true,
+                        autoConnect: false
+                    })
+                    console.log(socket.connect())
 
-            client.write(packet)
-            client.end()
-        });
+                    socket.on('connect', (err) => {
+                        console.log("connected")
+                    })
+
+                    socket.on('GotHello', () => {
+                        console.log('done')
+                        resolve()
+                    })
+
+                    socket.emit('hello', (packet))
+
+                    console.log(socket.connected)
+                })
+            }
+
+            await send()
+
+            client.disconnect()
+        }
+
     }
 
-    getBucket(){
+    getBucket() {
         return this.DHT
     }
 
-    printDHT(){
+    printDHT() {
         this.DHT.forEach(element => {
-            console.log(element.address + " " + "[" + element.id +"]")
+            console.log(element.address + " " + "[" + element.id + "]")
         })
     }
 
 }
+
+
+
 
 module.exports = Bucket

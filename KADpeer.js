@@ -1,34 +1,97 @@
 var argv = require('optimist').argv;
 var Bucket = require('./Bucket')
-var net = require("net")
-var { getID, getIP } = require('./tools')
+
+const io = require("socket.io")();
+
+var { getID, getIP, getPort } = require('./tools')
 var { getPacket, disectPacket } = require('./Packet')
 
 let host = "127.0.0.1"
-
-const peer = net.createServer();
-peer.listen();
-
+let port;
 let bucket;
+let myId;
 
-let myId = {
-    id: getID(host + peer.address().port),
-    peerNum: 0,
-    address: host + ":" + peer.address().port
+
+const init = async () => {
+    port = await getPort()
+    
+    myId = {
+        id: getID(host + port),
+        peerNum: 0,
+        address: host + ":" + port
+    }
+
+    io.sockets.on("connection", (socket) => {
+        var remotePort = socket.request.headers.remoteport
+        console.log("connection from: " + remotePort)
+
+        socket.on('NewConnection', () => {
+            let DHT = bucket.getBucket()
+
+            let newPeer = {
+                address: host + ":" + remotePort,
+                id: getID(host + remotePort)
+            }
+    
+            socket.emit("recieved", getPacket(1, DHT.length, 'peer' + myId.peerNum, DHT))
+    
+            bucket.pushBucket(newPeer)
+    
+            console.log("connection from peer 127.0.0.1:" + remotePort)
+    
+            bucket.printDHT()
+        })
+    
+        socket.on('hello', (data) => {
+            let packet = disectPacket(data)
+    
+            console.log("Recieved Hello from: " + packet.senderName)
+            console.log(packet)
+    
+            if (packet.versionNo === 7) {
+                bucket.pushBucket({
+                    address: packet.senderName,
+                    id: getID(packet.senderName)
+                })
+    
+                bucket.printDHT()
+            }
+
+            socket.emit('GotHello')
+        })
+    })
+
+    io.listen(port)
 }
 
+
 const main = async () => {
+    await init()
+    
     bucket = new Bucket(myId)
 
     if (argv.p !== undefined) {
         let inputConn = getIP(argv)
 
-        await initialization(net.Socket().connect(inputConn.port, inputConn.ip, () => {
-            console.log("connecting....")
-        }), inputConn)
+        //wait for response from other end then send hello
+        console.log("connecting.....")
+        
+        const clientIo = require("socket.io-client")("ws://" + inputConn.address)
+        let client = clientIo("ws://" + inputConn.address, {
+            extraHeaders: {
+                remotePort: port
+            },
+            forceNew: true
+        })
+        
+        await initialization(client)
 
-        bucket.sendHello(net)
+        client.disconnect()
 
+        //send hello to others not including the inputted
+        await bucket.sendHello()
+
+        //push the connected one
         bucket.pushBucket({
             id: getID(inputConn.address),
             address: inputConn.address
@@ -40,60 +103,33 @@ const main = async () => {
     else {
         myId.peerNum = 1
         console.log(
-            "This peer address is 127.0.0.1: " + peer.address().port +
+            "This peer address is 127.0.0.1: " + port +
             " located at peer 1 " + myId.id
         )
     }
 }
 
-let initialization = (client, inputConn) => {
+let initialization = (client) => {
     return new Promise((resolve, reject) => {
-        client.on("data", (data) => {
+        client.on("recieved", (data) => {
             let packet = disectPacket(data)
 
             myId.peerNum = packet.numberOfPeers + 1
 
             console.log(
                 "Connected to " + packet.senderName + "\n" +
-                "This peer address is 127.0.0.1:" + peer.address().port + " located at " + +" " + myId.id
+                "This peer address is 127.0.0.1:" + port + " located at " + +" " + myId.id + "\n"
             )
 
             bucket.refreshBucket(packet.peerData)
-        
-            
+
             resolve()
         })
+        
+        client.emit("NewConnection")
     })
 }
 
 
-peer.on("connection", (socket) => {
-    let DHT = bucket.getBucket()
-    
-    let connPort = new Number(socket.remotePort).toPrecision() - 1
-    let connPortStr = new String(connPort).toString()
-
-    let newPeer = {
-        address: host + ":" + connPortStr,
-        id: getID(host + connPortStr)
-    }
-    
-    socket.write(getPacket(1, DHT.length, 'peer' + myId.peerNum, DHT))
-
-    bucket.pushBucket(newPeer)
-
-    console.log("connection from peer 127.0.0.1:" + connPortStr)
-
-    bucket.printDHT()
-})
-
-peer.on("data", (data) => {
-    let packet = disectPacket(data)
-
-    if(packet.versionNo === 7){
-        bucket.refreshBucket(packet.peerData)
-        bucket.printDHT()
-    }
-})
 
 main()

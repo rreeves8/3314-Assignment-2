@@ -8,7 +8,13 @@ const getPacket = (messageType, numberOfPeers, senderName, peerData) => {
     messageData.writeInt32BE(numberOfPeers, 12, 19)
     messageData.writeInt32BE(nameBuffer.byteLength, 20, 31)
 
-    return Buffer.concat([messageData, nameBuffer, getPeerBuffer(peerData)])
+    let peerBuffer = Buffer.alloc(0)
+
+    if(peerData !== null){
+        peerBuffer = getPeerBuffer(peerData)
+    }
+
+    return Buffer.concat([messageData, nameBuffer, peerBuffer])
 }
 
 const disectPacket = (packetBuffer) => {

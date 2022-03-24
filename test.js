@@ -1,9 +1,9 @@
-var { getPacket,
-    disectPacket } = require('./Packet')
-var { getID, getIP } = require('./tools')
+const fsPromises = require('fs').promises;
+const client = require('socket.io-client')
 
-let packet = getPacket(1,2, "magnus", [{ address: "127.0.0.1:2722", id: getID("127.0.0.1:2722") }, { address: "127.0.0.1:2523", id: getID("127.0.0.1:2523") }])
+const move = async () => {
+    let socket = client("ws://127.0.0.1:3001")
+    socket.emit('hello')
+}
 
-console.log(packet)
-
-console.log(disectPacket(packet))
+move()

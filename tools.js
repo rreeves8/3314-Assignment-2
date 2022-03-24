@@ -1,4 +1,5 @@
 var crypto = require('crypto')
+var fp = require("find-free-port")
 
 const getID = (ip) => {
     var shasum = crypto.createHash('sha1')
@@ -49,7 +50,17 @@ const getSharedBits = (binarySelf, binaryNewPeer) => {
     return sharedBits
 }
 
+const getPort = async () => {
+    return new Promise((resolve, reject) => {
+        fp(3000, "127.0.0.1", (err, port) => {
+            if(err) throw err
+            resolve(port)
+        });
+    })
+}
+
 module.exports = {
+    getPort,
     getID,
     getIP,
     XORing,
