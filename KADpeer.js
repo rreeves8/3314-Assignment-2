@@ -1,7 +1,8 @@
 var argv = require('optimist').argv;
 var Bucket = require('./Bucket')
 
-const io = require("socket.io")();
+const { Server } = require("socket.io");
+const clientIo = require("socket.io-client")
 
 var { getID, getIP, getPort } = require('./tools')
 var { getPacket, disectPacket } = require('./Packet')
@@ -9,19 +10,21 @@ var { getPacket, disectPacket } = require('./Packet')
 let host = "127.0.0.1"
 let port;
 let bucket;
+var io;
 let myId;
 
 
 const init = async () => {
     port = await getPort()
-    
+    io = new Server();
+
     myId = {
         id: getID(host + port),
         peerNum: 0,
         address: host + ":" + port
     }
 
-    io.sockets.on("connection", (socket) => {
+    io.on("connection", (socket) => {
         var remotePort = socket.request.headers.remoteport
         console.log("connection from: " + remotePort)
 
@@ -32,42 +35,45 @@ const init = async () => {
                 address: host + ":" + remotePort,
                 id: getID(host + remotePort)
             }
-    
+
             socket.emit("recieved", getPacket(1, DHT.length, 'peer' + myId.peerNum, DHT))
-    
+
             bucket.pushBucket(newPeer)
-    
+
             console.log("connection from peer 127.0.0.1:" + remotePort)
-    
+
             bucket.printDHT()
         })
-    
+
         socket.on('hello', (data) => {
-            let packet = disectPacket(data)
-    
-            console.log("Recieved Hello from: " + packet.senderName)
-            console.log(packet)
-    
-            if (packet.versionNo === 7) {
-                bucket.pushBucket({
-                    address: packet.senderName,
-                    id: getID(packet.senderName)
-                })
-    
-                bucket.printDHT()
+            try {
+                let packet = disectPacket(data)
+                console.log("Recieved Hello from: " + packet.senderName)
+                console.log(packet)
+
+                if (packet.versionNo === 7) {
+                    bucket.pushBucket({
+                        address: packet.senderName,
+                        id: getID(packet.senderName)
+                    })
+
+                    bucket.printDHT()
+                }
+            }
+            catch {
+                console.log("bad packet")
             }
 
             socket.emit('GotHello')
         })
     })
-
     io.listen(port)
 }
 
 
 const main = async () => {
     await init()
-    
+
     bucket = new Bucket(myId)
 
     if (argv.p !== undefined) {
@@ -75,18 +81,19 @@ const main = async () => {
 
         //wait for response from other end then send hello
         console.log("connecting.....")
-        
-        const clientIo = require("socket.io-client")("ws://" + inputConn.address)
+
         let client = clientIo("ws://" + inputConn.address, {
             extraHeaders: {
                 remotePort: port
             },
             forceNew: true
         })
-        
+
         await initialization(client)
 
         client.disconnect()
+
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         //send hello to others not including the inputted
         await bucket.sendHello()
@@ -125,7 +132,7 @@ let initialization = (client) => {
 
             resolve()
         })
-        
+
         client.emit("NewConnection")
     })
 }

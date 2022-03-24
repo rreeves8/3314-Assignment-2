@@ -2,7 +2,7 @@ var { XORing,
     Hex2Bin, getSharedBits } = require('./tools')
 var { getPacket } = require('./Packet')
 
-const client = require('socket.io-client')
+const io = require('socket.io-client')
 
 //dht = Array<{ bits: array, id: string, address: string}>()
 
@@ -55,33 +55,7 @@ class Bucket {
 
             console.log("sending hello too: " + "ws://" + address)
 
-            const send = () => {
-                return new Promise((resolve, reject) => {
-                    let socket = client("ws:/" + new String(address).toString(), {
-                        extraHeaders: {
-                            remotePort: this.self.port
-                        },
-                        forceNew: true,
-                        autoConnect: false
-                    })
-                    console.log(socket.connect())
-
-                    socket.on('connect', (err) => {
-                        console.log("connected")
-                    })
-
-                    socket.on('GotHello', () => {
-                        console.log('done')
-                        resolve()
-                    })
-
-                    socket.emit('hello', (packet))
-
-                    console.log(socket.connected)
-                })
-            }
-
-            await send()
+            await send(this.self, address, packet)
 
             client.disconnect()
         }
@@ -100,6 +74,40 @@ class Bucket {
 
 }
 
+const send = (self, address, packet) => {
+    return new Promise(async (resolve, reject) => {
+        console.log("ws://" + new String(address).toString())
+
+        let socket = io.connect("http://" + new String(address).toString(), {
+            extraHeaders: {
+                remotePort: self.port
+            },
+            forceNew: true,
+            timeout: 5000,
+        })
+
+        socket.timeout(5000).emit("no_connection", (err) => {
+            if (err) {
+                console.log(err)
+            }
+            else {
+                console.log("connected")
+                socket.emit('hello', (packet))
+            }
+        });
+
+        socket.on('connect_failed', err => {
+            console.log("Error" + err)
+        })
+
+        socket.on('GotHello', () => {
+            console.log('done')
+            resolve()
+        })
+
+        console.log(socket.connected)
+    })
+}
 
 
 
