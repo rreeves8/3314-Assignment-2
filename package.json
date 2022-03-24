@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "open": "^8.4.0",
+    "optimist": "^0.6.1",
+    "socket.io": "^4.4.1"
+  }
+}
