@@ -59,8 +59,7 @@ let initialization = (client, inputConn) => {
             )
 
             bucket.refreshBucket(packet.peerData)
-            
-            client.destroy()
+        
             
             resolve()
         })
