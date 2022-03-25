@@ -12,6 +12,7 @@ class Bucket {
         this.self = peer
     }
 
+    //add new peers to DHT table
     refreshBucket(newPeers) {
         if (newPeers.length !== 0) {
             newPeers.forEach((element) => {
@@ -20,16 +21,25 @@ class Bucket {
         }
     }
 
+    //push single peer to DHT
     pushBucket(newPeer) {
+        //get the shared bits between myself and new peer
         let sharedBits = getSharedBits(Hex2Bin(this.self.id), Hex2Bin(newPeer.id))
+
+        //see if it already exists in table, index = -1 if it doesnt
         let index = this.DHT.findIndex((e) => e.bits === sharedBits);
 
         if (index !== -1) {
-            let idBinary = Hex2Bin(this.DHT[index].id)
+            //if shared bits already exists
 
+            let idBinary = Hex2Bin(this.DHT[index].id)
+            //get the id in binary of the already existsing one
+
+            //find the distancse between 
             let distanceToCurrent = XORing(Hex2Bin(this.self.id), idBinary)
             let distanceToNewPeer = XORing(Hex2Bin(this.self.id), Hex2Bin(newPeer.id))
 
+            //if the disance to the current is greater ignore the new peer
             if (distanceToCurrent > distanceToNewPeer) {
                 this.DHT[index] = {
                     bits: sharedBits,
@@ -39,7 +49,7 @@ class Bucket {
             }
         }
         else {
-
+            //if doesnt already exist push it to table
             this.DHT.push({
                 bits: sharedBits,
                 id: newPeer.id,
@@ -49,19 +59,21 @@ class Bucket {
     }
 
     async sendHello() {
-        for (let i = 0; i < this.DHT.length; i++) {
-            let element = this.DHT[i]
-            let address = element.address
-            let packet = getPacket(1, 0, this.self.address, null)
+        let promiseArr = []
+        try {
+            for (let i = 0; i < this.DHT.length; i++) {
+                let element = this.DHT[i]
+                let address = element.address
+                let packet = getPacket(1, 0, this.self.address, null)
 
-            console.log("sending hello too: " + "ws://" + address)
+                promiseArr.push(send(this.self, address, packet))
+            }
 
-            await send(this.self, address, packet).catch(() => {
-                console.log("Error Connecting to " + address)
-            })
+            await Promise.all(promiseArr)
         }
-        console.log("")
-
+        catch(e){
+            console.log("connection too: "+ e + " failed")
+        }
     }
 
     getBucket() {
@@ -80,6 +92,7 @@ class Bucket {
 
 const send = (self, address, packet) => {
     return new Promise(async (resolve, reject) => {
+        console.log("sending hello too: " + "ws://" + address)
         let socket = io.connect("ws://" + new String(address).toString(), {
             extraHeaders: {
                 remotePort: self.address.split(":")[1]
@@ -88,7 +101,7 @@ const send = (self, address, packet) => {
         })
 
         socket.timeout(5000).emit("my-event", (err) => {
-            reject()
+            reject(address)
         });
 
         socket.on('connect', () => [
@@ -105,7 +118,5 @@ const send = (self, address, packet) => {
         })
     })
 }
-
-
 
 module.exports = Bucket
