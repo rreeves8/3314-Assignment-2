@@ -1,5 +1,7 @@
 var crypto = require('crypto')
 var fp = require("find-free-port")
+var net = require('net');
+const { resolve } = require('path');
 
 const getID = (ip) => {
     var shasum = crypto.createHash('sha1')
@@ -50,10 +52,37 @@ const getSharedBits = (binarySelf, binaryNewPeer) => {
     return sharedBits
 }
 
-const getPort = async () => {
+const checkPort = (port) => {
     return new Promise((resolve, reject) => {
-        fp(3000, "127.0.0.1", (err, port) => {
-            if(err) throw err
+        var server = net.createServer();
+        server.once('error', function (err) {
+            if (err.code === 'EADDRINUSE') {
+                resolve(false)
+            }
+        });
+
+        server.once('listening', function () {
+            // close the server if listening doesn't fail
+            server.close();
+            resolve(true)
+        });
+
+        server.listen(port);
+    })
+}
+
+const getPort = () => {
+    return new Promise((resolve, reject) => {
+        fp(3000, "127.0.0.1", async (err, port) => {
+            let check = true
+            while (check) {
+                port += Math.floor((Math.random() * 10000))
+
+                if(await checkPort(port)){
+                    check = false
+                }
+            }
+
             resolve(port)
         });
     })

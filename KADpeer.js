@@ -13,7 +13,6 @@ let bucket;
 var io;
 let myId;
 
-
 const init = async () => {
     port = await getPort()
     io = new Server();
@@ -26,7 +25,7 @@ const init = async () => {
 
     io.on("connection", (socket) => {
         var remotePort = socket.request.headers.remoteport
-        console.log("connection from: " + remotePort)
+        console.log("Connection from peer 127.0.0.1:" + remotePort + "\n")
 
         socket.on('NewConnection', () => {
             let DHT = bucket.getBucket()
@@ -40,18 +39,18 @@ const init = async () => {
 
             bucket.pushBucket(newPeer)
 
-            console.log("connection from peer 127.0.0.1:" + remotePort)
+            console.log("New Connection Sending DHT Table" + "\n")
 
+            console.log("Updating Self:")
             bucket.printDHT()
         })
 
         socket.on('hello', (data) => {
             try {
                 let packet = disectPacket(data)
-                console.log("Recieved Hello from: " + packet.senderName)
-                console.log(packet)
 
                 if (packet.versionNo === 7) {
+                    console.log("Recieved Hello from: " + packet.senderName + " , updating DHT..." )
                     bucket.pushBucket({
                         address: packet.senderName,
                         id: getID(packet.senderName)
@@ -111,7 +110,7 @@ const main = async () => {
         myId.peerNum = 1
         console.log(
             "This peer address is 127.0.0.1: " + port +
-            " located at peer 1 " + myId.id
+            " located at peer 1 " + myId.id + "\n"
         )
     }
 }

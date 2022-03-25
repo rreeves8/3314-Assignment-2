@@ -56,8 +56,6 @@ class Bucket {
             console.log("sending hello too: " + "ws://" + address)
 
             await send(this.self, address, packet)
-
-            client.disconnect()
         }
 
     }
@@ -67,45 +65,36 @@ class Bucket {
     }
 
     printDHT() {
+        console.log("DHT TABLE: ")
         this.DHT.forEach(element => {
             console.log(element.address + " " + "[" + element.id + "]")
         })
+        console.log("")
     }
 
 }
 
 const send = (self, address, packet) => {
     return new Promise(async (resolve, reject) => {
-        console.log("ws://" + new String(address).toString())
-
-        let socket = io.connect("http://" + new String(address).toString(), {
+        let socket = io.connect("ws://" + new String(address).toString(), {
             extraHeaders: {
-                remotePort: self.port
+                remotePort: self.address.split(":")[1]
             },
             forceNew: true,
-            timeout: 5000,
         })
 
-        socket.timeout(5000).emit("no_connection", (err) => {
-            if (err) {
-                console.log(err)
-            }
-            else {
-                console.log("connected")
-                socket.emit('hello', (packet))
-            }
-        });
+        socket.on('connect', ()=>[
+            socket.emit('hello', packet)
+        ])
 
         socket.on('connect_failed', err => {
             console.log("Error" + err)
         })
 
         socket.on('GotHello', () => {
-            console.log('done')
+            socket.disconnect()
             resolve()
         })
-
-        console.log(socket.connected)
     })
 }
 

@@ -1,34 +1,33 @@
 const fsPromises = require('fs').promises;
-const { DESTRUCTION } = require('dns');
 const { io } = require('socket.io-client')
+const Bucket = require('./Bucket')
 
 const move = async () => {
-    await send({ port: 3002 }, "127.0.0.1:3001", null)
-    await send({ port: 3002 }, "127.0.0.1:3001", null)
+
+    await send({ address: "127.0.0.1:3001", id: "werwadfsxcg3456", port: 4234 }, "127.0.0.1:3029", null)
 }
 
 const send = (self, address, packet) => {
-    return new Promise((resolve, reject) => {
-        let socket = io("ws://127.0.0.1:3001", {
-            extraHeaders: {
-                remotePort: self.port
-            },
-            forceNew: true,
-            reconnection: true
-        })
+    console.log("ws://" + new String(address).toString())
 
-        socket.on('connect', (err) => {
-            console.log("connected")
-        })
-
-        socket.on('GotHello', () => {
-            console.log('done')
-            socket.disconnect()
-            resolve()
-        })
-
-        socket.emit('hello', (packet))
+    let socket = io.connect("ws://" + new String(address).toString(), {
+        extraHeaders: {
+            remotePort: self.address.split(':')[1]
+        },
+        forceNew: true,
+        timeout: 5000,
     })
+
+    socket.on('connect_failed', err => {
+        console.log("Error" + err)
+    })
+
+    socket.on('GotHello', () => {
+        console.log('done')
+    })
+
+    console.log(socket.connected)
+
 }
 
 move()
