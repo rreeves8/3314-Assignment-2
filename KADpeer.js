@@ -15,7 +15,7 @@ let myId;
 
 const init = async () => {
     port = await getPort()
-    io = new Server();
+    io = new Server()
 
     myId = {
         id: getID(host + port),
@@ -66,6 +66,7 @@ const init = async () => {
             socket.emit('GotHello')
         })
     })
+
     io.listen(port)
 }
 

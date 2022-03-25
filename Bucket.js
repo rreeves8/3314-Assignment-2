@@ -83,7 +83,7 @@ const send = (self, address, packet) => {
             forceNew: true,
         })
 
-        socket.on('connect', ()=>[
+        socket.on('connect', () => [
             socket.emit('hello', packet)
         ])
 
