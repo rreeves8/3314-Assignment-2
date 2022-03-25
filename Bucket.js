@@ -39,6 +39,7 @@ class Bucket {
             }
         }
         else {
+
             this.DHT.push({
                 bits: sharedBits,
                 id: newPeer.id,
@@ -55,8 +56,11 @@ class Bucket {
 
             console.log("sending hello too: " + "ws://" + address)
 
-            await send(this.self, address, packet)
+            await send(this.self, address, packet).catch(() => {
+                console.log("Error Connecting to " + address)
+            })
         }
+        console.log("")
 
     }
 
@@ -82,6 +86,10 @@ const send = (self, address, packet) => {
             },
             forceNew: true,
         })
+
+        socket.timeout(5000).emit("my-event", (err) => {
+            reject()
+        });
 
         socket.on('connect', () => [
             socket.emit('hello', packet)
