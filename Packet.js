@@ -1,6 +1,9 @@
+//return a buffer containing the information from the mthod signature
 const getPacket = (messageType, numberOfPeers, senderName, peerData) => {
+    //get a buffer from the sendername string
     var nameBuffer = Buffer.from(senderName, 'utf16le')
 
+    //encode the constant data too another bnuffer
     let messageData = Buffer.alloc(31)
 
     messageData.writeInt32BE(7, 0, 3)
@@ -8,15 +11,18 @@ const getPacket = (messageType, numberOfPeers, senderName, peerData) => {
     messageData.writeInt32BE(numberOfPeers, 12, 19)
     messageData.writeInt32BE(nameBuffer.byteLength, 20, 31)
 
+    //set up an empty peer buffer
     let peerBuffer = Buffer.alloc(0)
 
     if(peerData !== null){
+        //if peerdata contains anything, get the buffer from the array
         peerBuffer = getPeerBuffer(peerData)
     }
 
     return Buffer.concat([messageData, nameBuffer, peerBuffer])
 }
 
+//dissect the incomning packet and return an object containing the data
 const disectPacket = (packetBuffer) => {
     let nameLength = packetBuffer.readInt32BE(20, 31)
 
@@ -30,6 +36,7 @@ const disectPacket = (packetBuffer) => {
     }
 }
 
+//diect each element of the peerdata array and convert it to a buffer, 
 const getPeerBuffer = (peerData) => {
     let buff = []
 
@@ -54,6 +61,7 @@ const getPeerBuffer = (peerData) => {
     return Buffer.concat(buff)
 }
 
+//disect the peerbuffer and return a peerarray
 const disectPeerBuffer = (peerBuffer, numberOfPeers) => {
     let peers = []
 
